@@ -37,7 +37,7 @@ BEGIN
     IF es_piloto = 0 OR es_copiloto = 0 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Uno o ambos empleados no son pilotos';
-    ELSE
+    END IF;
         -- Insertar en la tabla piloto si no existe ya
         INSERT INTO piloto (dni, dni_copiloto, numero_vuelos)
         VALUES (dni_piloto, dni_copiloto, 0)
@@ -52,7 +52,7 @@ BEGIN
         VALUES (dni_copiloto, codigo_vuelo);
 
         SELECT 'Piloto y copiloto asignados correctamente al vuelo' AS Resultado;
-    END IF;
+
 END&&
 
 DELIMITER ;
@@ -79,7 +79,7 @@ Estructuras iterativas: Sumar ingresos si hay pasajeros.*/
 DELIMITER $$
 
 CREATE FUNCTION calcular_ingresos_vuelo(codigo_vuelo INT, precio_base DECIMAL(10,2))
-RETURNS DECIMAL(10,2) DETERMINISTIC
+RETURNS DECIMAL(10,2)
 BEGIN
     DECLARE num_pasajeros INT;
     DECLARE ingresos DECIMAL(10,2);
