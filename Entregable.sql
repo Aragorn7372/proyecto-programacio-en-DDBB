@@ -131,20 +131,71 @@ Estructuras iterativas: Filtrar por fechas.*/
 
 /* 5. Función: Verificar Disponibilidad de Pista
 Descripción: Una función que verifica si una pista en un aeropuerto (lugar) está disponible para un horario específico, evitando solapamientos.
-
 Requisitos cubiertos:
-
 Parámetros: codigo_lugar, hora_salida, hora_llegada.
-
 Cursores: Consultar vuelos existentes en ese lugar.
-
 Cancelación: Retornar falso si hay conflicto.*/
+
+DELIMITER $$
+
+CREATE FUNCTION verificar_disponibilidad_pista(
+    codigo_lugar INT,
+    hora_salida TIME,
+    hora_llegada TIME
+) RETURNS BOOLEAN
+BEGIN
+    DECLARE disponibilidad INT DEFAULT 0;
+
+    -- Verificar solapamiento con vuelos existentes
+
+    SELECT COUNT(*) INTO disponibilidad
+    FROM vuelos
+    WHERE (código_origen = codigo_lugar OR código_destino = codigo_lugar)
+    AND (
+        (hora_salida < hora_llegada AND hora_llegada > hora_salida)
+    );
+
+    RETURN (disponibilidad = 0);
+END$$
+
+DELIMITER ;
+
+ -- Prueba de disponibilidad
+
+SELECT verificar_disponibilidad_pista(1, '10:00:00', '12:00:00') AS Disponible;
+
+SELECT verificar_disponibilidad_pista(2, '15:00:00', '16:30:00') AS Disponible;
 
 /* 6. Disparador: Actualizar Antigüedad Automáticamente
 Descripción: Un trigger que actualiza la antigüedad de un empleado (en días) cada vez que se modifica su fecha de contrato.
-
 Requisitos cubiertos:
-
 Estructuras condicionales: Verificar cambios en fecha_contrato.
-
 Manejadores: Gestionar errores en la actualización.*/
+
+ALTER TABLE empleados ADD COLUMN antigüedad INT;
+
+DELIMITER $$
+
+CREATE TRIGGER actualizar_antiguedad
+BEFORE UPDATE ON empleados
+FOR EACH ROW
+BEGIN
+    IF OLD.fecha_contrato != NEW.fecha_contrato THEN
+        SET NEW.antigüedad = DATEDIFF(CURDATE(), NEW.fecha_contrato);
+    END IF;
+END$$
+
+CREATE TRIGGER calcular_antiguedad_insert
+BEFORE INSERT ON empleados
+FOR EACH ROW
+BEGIN
+    SET NEW.antigüedad = DATEDIFF(CURDATE(), NEW.fecha_contrato);
+END$$
+
+DELIMITER ;
+
+
+-- Pruebas
+UPDATE empleados SET fecha_contrato = '2023-01-01' WHERE dni = '87333555P';
+
+SELECT antigüedad FROM empleados WHERE dni = '87333555P';
