@@ -113,10 +113,43 @@ SELECT calcular_ingresos_vuelo(14, 150.00) AS Ingresos_estimados;
 SELECT calcular_ingresos_vuelo(99, 150.00) AS Ingresos_estimados;
 
 /* 3. Disparador: Validar Edad de Azafatos
-Descripción: Un trigger que impide insertar o actualizar azafatos con edad menor a 18 o mayor a 65 años.
+Descripción: Un trigger que impide insertar azafatos con edad menor a 18 o mayor a 65 años.
 Requisitos cubiertos:
 Cancelación: Rechazar operación si la edad no es válida.
 Estructuras condicionales: Verificar rango de edad.*/
+    DELIMITER $$
+    CREATE OR REPLACE TRIGGER verificacion_edad BEFORE INSERT ON azafatos
+    FOR EACH ROW
+    BEGIN
+        IF(NEW.edad>65 OR NEW.edad<18)THEN
+            SIGNAL SQLSTATE  '45000'
+            SET MESSAGE_TEXT = 'edad no valida debe estar entre los 18 y 65';
+        end if;
+    end$$
+/*pruebas de funcionalidad*/
+-- azafato con edad correcta --
+    INSERT empleados VALUES ('55555555k','prueba','buena',CURRENT_DATE(),100.25,'Azafatos');
+    INSERT azafatos values ('55555555k','H',18);
+    /* El SELECT no deberia fallar*/
+    SELECT * from azafatos where dni='55555555k';
+    /*limpieza de datos*/
+    delete from azafatos where dni='55555555k';
+-- azafato con edad superior correcta --
+    INSERT azafatos values ('55555555k','H',65);
+    /*El SELECT no deberia mostrar los datos anteriormente creados*/
+    SELECT * from azafatos where dni='55555555k';
+    /*limpieza de datos*/
+    delete from azafatos where dni='55555555k';
+-- azafato con edad incorrecta inferior --
+    INSERT azafatos values ('55555555k','H',17);
+    /*los select no muestran nada debido a que no existen esas columnas porque el trigger las elimina y cancela la creacion de azafatos*/
+    SELECT * from azafatos where dni='55555555k';
+-- azafato con edad incorrecta superior --
+    INSERT azafatos values ('55555555k','H',66);
+    /*los select deberian dar error debido a que no existen esas columnas porque el trigger las elimina y cancela la creacion de azafatos*/
+    SELECT * from azafatos where dni='55555555k';
+    /*Limpieza de datos*/
+    delete from empleados where dni='55555555k';
 
 /* 4. Procedimiento: Generar Reporte de Vuelos por Fecha
 Descripción: Un procedimiento que lista todos los vuelos en un rango de fechas, incluyendo origen, destino y número de pasajeros.
@@ -125,9 +158,37 @@ Requisitos cubiertos:
 
 Parámetros: fecha_inicio, fecha_fin.
 
-Cursores: Recorrer vuelos y contar pasajeros.
-
 Estructuras iterativas: Filtrar por fechas.*/
+
+CREATE OR REPLACE PROCEDURE  reporte_vuelos_por_fecha(
+    IN fecha_inicio DATE,
+    IN fecha_fin DATE
+)
+BEGIN
+    SELECT
+        v.código AS codigo,
+        v.fecha AS Fecha,
+        v.numero_vuelo AS Número_Vuelo,
+        v.hora_salida AS Hora_Salida,
+        v.hora_llegada AS Hora_Llegada,
+        CONCAT(lo.localidad, ', ', lo.pais) AS Origen,
+        CONCAT(ld.localidad, ', ', ld.pais) AS Destino,
+        COUNT(e.dni) AS Pasajeros
+    FROM vuelos v
+             JOIN lugar lo ON v.código_origen = lo.código
+             JOIN lugar ld ON v.código_destino = ld.código
+             LEFT JOIN embarcar e ON v.código = e.código
+    WHERE v.fecha BETWEEN fecha_inicio AND fecha_fin
+    GROUP BY
+        v.código, v.fecha, v.numero_vuelo, v.hora_salida, v.hora_llegada,
+        lo.localidad, lo.pais,
+        ld.localidad, ld.pais;
+END $$
+    /*deberian aparecer solo las columnas dentro de esas fechas, que deberian ser 9 */
+ CALL reporte_vuelos_por_fecha('2024-02-05','2024-05-19');
+
+SELECT * FROM vuelos WHERE fecha BETWEEN('2024-02-05')AND '2024-05-19';
+
 
 /* 5. Función: Verificar Disponibilidad de Pista
 Descripción: Una función que verifica si una pista en un aeropuerto (lugar) está disponible para un horario específico, evitando solapamientos.
